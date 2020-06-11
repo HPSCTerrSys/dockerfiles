@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<config_compilers version="2.0">
+    <compiler MACH="clm5docker" COMPILER="gnu">
+        <NETCDF_PATH>/usr/local</NETCDF_PATH>
+        <NETCDF_C_PATH>/usr/local</NETCDF_C_PATH>
+        <NETCDF_FORTRAN_PATH>/usr/local</NETCDF_FORTRAN_PATH>
+        <PNETCDF_PATH>/usr/local</PNETCDF_PATH>
+        <FFLAGS>
+            <append MPILIB="mpi-serial"> -mcmodel=medium </append>
+        </FFLAGS>
+        <SLIBS>
+            <append> -L/usr/lib64 -llapack </append>
+            <append> -L/usr/local/lib64 -lnetcdf -lnetcdff </append>
+        </SLIBS>
+    </compiler>
+</config_compilers>
