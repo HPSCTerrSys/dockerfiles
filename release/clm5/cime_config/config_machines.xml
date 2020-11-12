@@ -3,7 +3,7 @@
 <config_machines version="2.0">
     <machine MACH="clm5-docker">
         <DESC>CLM5 Docker container</DESC>
-        <NODENAME_REGEX>clm5docker.*</NODENAME_REGEX>
+        <NODENAME_REGEX>clm5-docker.*</NODENAME_REGEX>
         <OS>LINUX</OS>
         <COMPILERS>gnu</COMPILERS>
         <MPILIBS compiler="gnu">openmpi</MPILIBS>

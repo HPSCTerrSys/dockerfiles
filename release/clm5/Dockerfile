@@ -1,53 +1,44 @@
 # escape=`
-FROM centos:7.8.2003
+FROM centos:8.2.2004
 
 # Image metadata for documentation purposes. Has no effect on docker build behavior.
 LABEL `
     org.label-schema.schema-version="1.0" `
     org.label-schema.name="CLM5.0 Development Environment" `
-    org.label-schema.version="0.3" `
+    org.label-schema.version="0.4" `
     org.label-schema.vendor="IBG-3" `
     org.label-schema.license="GPLv2" `
-    org.label-schema.build-date="20200622" `
+    org.label-schema.build-date="20201111" `
     clm.version.major="5" `
     clm.env.compiler="GCC" `
-    clm.env.compiler.version="9.3.1-2" `
+    clm.env.compiler.version="8.3.1" `
     clm.env.mpi="OpenMPI" `
-    clm.env.mpi.version="4.0.4" `
-    clm.env.lapack.version="3.9.0" `
-    clm.env.hdf5.version="1.10.6" `
-    clm.env.cmake.version="3.17" `
+    clm.env.mpi.version="4.0.2-2" `
+    clm.env.cmake.version="3.18" `
     clm.env.pnetcdf.version="1.12.1" `
-    clm.env.netcdf-c.version="4.6.3" `
-    clm.env.netcdf-fortran.version="4.4.5" `
+    clm.env.netcdf-c.version="4.7.0" `
+    clm.env.netcdf-fortran.version="4.5.2-3" `
     clm.env.esmf.version="8.0.1"
 
 # Import cime config files to image
 WORKDIR /tmp/.cime
 COPY cime_config/* /tmp/.cime/
 
-# Enable man pages on CentOS docker container. See https://unix.stackexchange.com/a/493499
-RUN sed -i 's/tsflags=nodocs/#tsflags=nodocs/' /etc/yum.conf `
-    `
 # Install required packages from base repo
-    && yum update -y `
-    && yum install -y file git install libcurl-devel libtool m4 make man-db man-pages sudo vim wget which tree `
-                      centos-release-scl epel-release `
-                      perl-App-cpanminus perl-autodie perl-Env `
+RUN dnf update -y `
+    && dnf group install -y "Development Tools" `
+    && dnf install -y glibc-langpack-en libcurl-devel man-db man-pages passwd sudo vim wget which tree `
+                      perl-App-cpanminus python38 python38-pip `
+                      epel-release `
+    && dnf config-manager --set-enabled PowerTools `
     `
 # Install required packages from EPEL and SCL repos
-    && yum install -y cmake3 devtoolset-9-gcc* hdf5-devel ncl nco ninja-build python3 python3-pip `
-    && yum clean all `
+    && dnf install -y hdf5-devel lapack-devel ncl nco netcdf-devel netcdf-fortran netcdf-fortran-devel openssl-devel openmpi openmpi-devel `
+    && dnf clean all `
     `
-# Install LibXML Perl library which is needed by CLM5
-    && cpanm XML::LibXML `
-    `
-# Set cmake3 as the default cmake command
-    && alternatives --install /usr/local/bin/cmake cmake /usr/bin/cmake3 20 `
-                    --slave /usr/local/bin/ctest ctest /usr/bin/ctest3 `
-                    --slave /usr/local/bin/cpack cpack /usr/bin/cpack3 `
-                    --slave /usr/local/bin/ccmake ccmake /usr/bin/ccmake3 `
-                    --family cmake
+# misc
+    && ln -s /usr/bin/python3 /usr/bin/python `
+    && cpanm bigint && cpanm XML::LibXML
 
 # Required envs for building libraries
 ENV ESMF_DIR=/tmp/bld/esmf-ESMF_8_0_1
@@ -55,54 +46,14 @@ ENV ESMF_INSTALL_PREFIX=/usr/local
 ENV ESMF_INSTALL_MODDIR=include
 ENV ESMF_INSTALL_LIBDIR=lib
 ENV ESMF_INSTALL_BINDIR=bin
-ENV ESMF_NETCDF=split
-ENV ESMF_NETCDF_INCLUDE=/usr/local/include
-ENV ESMF_NETCDF_LIBS="-lnetcdf -lnetcdff"
-ENV ESMF_NETCDF_LIBPATH=/usr/local/lib64
-ENV ESMF_NETCDF_FLIBPATH=/usr/local/lib64
-ENV ESMF_NETCDF_CPATH=/usr/local
-ENV ESMF_NETCDF_FPATH=/usr/local
+ENV PATH="/usr/lib64/openmpi/bin:${PATH}"
 
-# Prepare build environment
-RUN source /opt/rh/devtoolset-9/enable `
-    && mkdir -vp /tmp/bld `
+# Install CMake
+RUN mkdir -vp /tmp/bld `
     && cd /tmp/bld `
-    && wget -c https://download.open-mpi.org/release/open-mpi/v4.0/openmpi-4.0.4.tar.gz `
-    && tar zxf openmpi-4.0.4.tar.gz `
-    && cd openmpi-4.0.4 `
-    && ./configure --prefix=/usr && make -j8 all && make install && ldconfig `
-    `
-# LAPACK
-    && wget -c https://github.com/Reference-LAPACK/lapack/archive/v3.9.0.tar.gz `
-    && tar zxf v3.9.0.tar.gz `
-    && cd lapack-3.9.0 `
-    && cmake -DCMAKE_INSTALL_PREFIX=/usr/local -S . -B ./bld `
-    && cd bld && make -j && make install `
-    `
-# HDF5
-    && cd /tmp/bld `
-    && wget -c https://support.hdfgroup.org/ftp/HDF5/releases/hdf5-1.10/hdf5-1.10.6/src/CMake-hdf5-1.10.6.tar.gz `
-    && tar zxf CMake-hdf5-1.10.6.tar.gz `
-    && cd CMake-hdf5-1.10.6 `
-    && sed -i 's/HDF5_BUILD_FORTRAN:BOOL=OFF/HDF5_BUILD_FORTRAN:BOOL=ON/' HDF5options.cmake `
-    && ./build-unix.sh `
-    && ./HDF5-1.10.6-Linux.sh --prefix=/opt --exclude-subdir --skip-license `
-    `
-# netCDF C
-    && cd /tmp/bld `
-    && wget -c https://github.com/Unidata/netcdf-c/archive/v4.6.3.tar.gz `
-    && tar zxf v4.6.3.tar.gz `
-    && cd netcdf-c-4.6.3 `
-    && cmake -DENABLE_PARALLEL4=ON -DCMAKE_PREFIX_PATH=/opt/HDF_Group/HDF5/1.10.6 -DCMAKE_INSTALL_PREFIX=/usr/local -S . -B ./bld `
-    && cd bld && make -j && make install `
-    `
-# netCDF Fortran
-    && cd /tmp/bld `
-    && wget -c https://github.com/Unidata/netcdf-fortran/archive/v4.4.5.tar.gz `
-    && tar zxf v4.4.5.tar.gz `
-    && cd netcdf-fortran-4.4.5 `
-    && cmake -DCMAKE_INSTALL_PREFIX=/usr/local -S . -B ./bld `
-    && cd bld && make && make install `
+    && wget -c https://github.com/Kitware/CMake/releases/download/v3.18.4/cmake-3.18.4.tar.gz `
+    && tar zxf cmake-3.18.4.tar.gz && cd cmake-3.18.4 `
+    && ./bootstrap && make && make install `
     `
 # PnetCDF
     && cd /tmp/bld `
@@ -110,7 +61,7 @@ RUN source /opt/rh/devtoolset-9/enable `
     && tar zxf checkpoint.1.12.1.tar.gz `
     && cd PnetCDF-checkpoint.1.12.1 `
     && autoreconf -i `
-    && ./configure --prefix=/usr/local --enable-netcdf4 --with-netcdf4=/usr/local && make -j && make install `
+    && ./configure --prefix=/usr/local && make -j && make install `
     `
 # Build and install ESMF libraries
     && cd /tmp/bld `
@@ -128,14 +79,13 @@ WORKDIR /home
 RUN groupadd -g 1555 clm5docker `
     && useradd clmuser -g clm5docker`
     && echo clm5 | passwd --stdin clmuser `
-    && echo "clmuser  ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers `
+    && usermod -aG wheel clmuser `
+    && rm /run/nologin `
     `
 # Set compiler and library paths for CLM5
     && echo "" >> /home/clmuser/.bash_profile `
     && echo "# Set compiler and library paths for CLM5" >> /home/clmuser/.bash_profile `
-    && echo "" >> /home/clmuser/.bash_profile >> /home/clmuser/.bash_profile `
-    && echo "LD_LIBRARY_PATH=/usr/local/lib64" >> /home/clmuser/.bash_profile `
-    && echo "source /opt/rh/devtoolset-9/enable" >> /home/clmuser/.bash_profile `
+    && echo "export PATH=/usr/lib64/openmpi/bin:$PATH" >> /home/clmuser/.bash_profile >> /home/clmuser/.bash_profile `
     && echo "source /etc/profile.d/ncarg.sh" >> /home/clmuser/.bash_profile `
     `
 # Set CLM5 environment variables

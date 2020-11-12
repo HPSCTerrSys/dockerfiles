@@ -3,7 +3,7 @@
 1. Build Docker image
 
 ```sh
-$ IMG_VERSION="0.3"
+$ IMG_VERSION="0.4"
 $ docker build --tag hpscterrsys/clm5:latest --tag hpscterrsys/clm5:$IMG_VERSION .
 ```
 
